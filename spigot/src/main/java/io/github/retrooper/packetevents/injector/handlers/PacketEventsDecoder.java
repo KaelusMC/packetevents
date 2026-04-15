@@ -59,6 +59,8 @@ public class PacketEventsDecoder extends MessageToMessageDecoder<ByteBuf> {
     }
 
     public void read(ChannelHandlerContext ctx, ByteBuf input, List<Object> out) throws Exception {
+        int savedReaderIndex = input.readerIndex();
+        int savedWriterIndex = input.writerIndex();
         try {
             // We still call preVia listeners if ViaVersion is not available
             if (!preViaVersion && PacketEvents.getAPI().getSettings().isPreViaInjection() && !ViaVersionUtil.isAvailable()) {
@@ -66,6 +68,14 @@ public class PacketEventsDecoder extends MessageToMessageDecoder<ByteBuf> {
             }
 
             PacketEventsImplHelper.handleServerBoundPacket(ctx.channel(), user, player, input, !preViaVersion);
+
+            // If the buffer was cleared (event cancelled), restore the original indices
+            // so downstream PE decoders from other plugins can still process the packet.
+            // ByteBuf.clear() only resets indices, the underlying data is intact.
+            if (!input.isReadable() && savedWriterIndex > 0) {
+                input.setIndex(savedReaderIndex, savedWriterIndex);
+            }
+
             out.add(ByteBufHelper.retain(input));
         } catch (Throwable e) {
             // We must be sure all the exceptions caused by our handlers are PacketProcessExceptions

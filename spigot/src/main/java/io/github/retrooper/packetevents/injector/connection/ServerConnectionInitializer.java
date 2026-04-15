@@ -113,6 +113,21 @@ public class ServerConnectionInitializer {
             } else {
                 targetDecoderName = ctx.pipeline().names().contains("inbound_config") ? "inbound_config" : "decoder";
                 targetEncoderName = ctx.pipeline().names().contains("outbound_config") ? "outbound_config" : "encoder";
+
+                // Inject before any other PE decoder/encoder from other plugins (e.g. Grim)
+                // so this instance always processes packets first.
+                for (String name : ctx.pipeline().names()) {
+                    if (name.startsWith("pe-decoder-") && !name.equals(decoderName)) {
+                        targetDecoderName = name;
+                        break;
+                    }
+                }
+                for (String name : ctx.pipeline().names()) {
+                    if (name.startsWith("pe-encoder-") && !name.equals(encoderName)) {
+                        targetEncoderName = name;
+                        break;
+                    }
+                }
             }
 
             // If we are forced (by the event), we check if we actually NEED to move.
