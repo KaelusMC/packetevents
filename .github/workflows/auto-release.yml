@@ -36,6 +36,11 @@ jobs:
       - name: Build
         run: ./gradlew build -x test --no-daemon
 
+      - name: Strip sources and javadoc jars
+        run: |
+          rm -f build/libs/packetevents-*-sources.jar
+          rm -f build/libs/packetevents-*-javadoc.jar
+
       - name: Generate tag
         id: tag
         env:
@@ -62,7 +67,4 @@ jobs:
             - `com.github.KaelusMC.packetevents:velocity:${{ steps.tag.outputs.tag }}`
             - `com.github.KaelusMC.packetevents:fabric:${{ steps.tag.outputs.tag }}`
             - `com.github.KaelusMC.packetevents:sponge:${{ steps.tag.outputs.tag }}`
-          files: |
-            build/libs/packetevents-*.jar
-            !build/libs/packetevents-*-sources.jar
-            !build/libs/packetevents-*-javadoc.jar
+          files: build/libs/packetevents-*.jar
