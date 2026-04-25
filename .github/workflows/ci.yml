@@ -33,26 +33,13 @@ jobs:
       - name: Build
         run: ./gradlew build --no-daemon
 
-      - name: Upload api jar
+      - name: Upload jars
         if: github.event_name == 'push'
         uses: actions/upload-artifact@v4
         with:
-          name: packetevents-api
-          path: api/build/libs/packetevents-api-*.jar
-          if-no-files-found: error
-
-      - name: Upload spigot jar
-        if: github.event_name == 'push'
-        uses: actions/upload-artifact@v4
-        with:
-          name: packetevents-spigot
-          path: spigot/build/libs/packetevents-spigot-*.jar
-          if-no-files-found: error
-
-      - name: Upload netty-common jar
-        if: github.event_name == 'push'
-        uses: actions/upload-artifact@v4
-        with:
-          name: packetevents-netty-common
-          path: netty-common/build/libs/packetevents-netty-common-*.jar
+          name: packetevents-jars
+          path: |
+            build/libs/packetevents-*.jar
+            !build/libs/packetevents-*-sources.jar
+            !build/libs/packetevents-*-javadoc.jar
           if-no-files-found: error

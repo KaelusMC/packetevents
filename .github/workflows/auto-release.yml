@@ -44,7 +44,6 @@ jobs:
           SHORT_SHA="${HEAD_SHA:0:7}"
           TAG="v$(date -u +%Y.%m.%d)-${SHORT_SHA}"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -64,10 +63,6 @@ jobs:
             - `com.github.KaelusMC.packetevents:fabric:${{ steps.tag.outputs.tag }}`
             - `com.github.KaelusMC.packetevents:sponge:${{ steps.tag.outputs.tag }}`
           files: |
-            api/build/libs/packetevents-api-*.jar
-            spigot/build/libs/packetevents-spigot-*.jar
-            netty-common/build/libs/packetevents-netty-common-*.jar
-            bungeecord/build/libs/packetevents-bungeecord-*.jar
-            velocity/build/libs/packetevents-velocity-*.jar
-            fabric/build/libs/packetevents-fabric-*.jar
-            sponge/build/libs/packetevents-sponge-*.jar
+            build/libs/packetevents-*.jar
+            !build/libs/packetevents-*-sources.jar
+            !build/libs/packetevents-*-javadoc.jar
