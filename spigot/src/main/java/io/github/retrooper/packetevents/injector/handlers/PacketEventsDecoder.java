@@ -38,7 +38,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 import java.util.List;
-import java.util.logging.Level;
 
 public class PacketEventsDecoder extends MessageToMessageDecoder<ByteBuf> {
     public User user;
@@ -102,12 +101,10 @@ public class PacketEventsDecoder extends MessageToMessageDecoder<ByteBuf> {
                 String clientVersion = user != null ? user.getClientVersion().getReleaseName() : "null";
                 String username = user != null && user.getProfile().getName() != null ? user.getProfile().getName() : player != null ? player.getName() : "null";
 
-                PacketEvents.getAPI().getLogger().log(Level.WARNING, cause, () ->
-                        "An error occurred while processing a packet from " + username +
-                        " (state: " + state +
-                        ", clientVersion: " + clientVersion +
+                PacketEvents.getAPI().getLogManager().warn("An error occurred while processing a packet from "
+                        + username + " (state: " + state + ", clientVersion: " + clientVersion +
                         ", serverVersion: " + PacketEvents.getAPI().getServerManager().getVersion().getReleaseName() +
-                        ", preVia: " + preViaVersion + ")");
+                        ", preVia: " + preViaVersion + ")", cause);
             } else {
                 PacketEvents.getAPI().getLogManager().warn(cause.getMessage());
             }

@@ -1,6 +1,7 @@
 package io.github.retrooper.packetevents.manager.logger;
 
-import net.kyori.adventure.text.format.NamedTextColor;
+import com.github.retrooper.packetevents.util.adventure.AdventureSerializer;
+import net.kyori.adventure.text.ComponentLike;
 
 import java.util.logging.Level;
 
@@ -12,28 +13,28 @@ public class Slf4jFabricLogger extends AbstractFabricLogger {
     }
 
     @Override
-    public void log(Level level, NamedTextColor color, String message) {
-        String msg = stripColorCodes(message);
+    public void log(Level level, ComponentLike component, Throwable error) {
+        String msg = stripColorCodes(AdventureSerializer.stringify(component));
         switch (level.getName()) {
             case "SEVERE":
-                logger.error(msg);
+                logger.error(msg, error);
                 break;
             case "WARNING":
-                logger.warn(msg);
+                logger.warn(msg, error);
                 break;
             case "INFO":
-                logger.info(msg);
+                logger.info(msg, error);
                 break;
             case "CONFIG":
             case "FINE":
-                logger.debug(msg);
+                logger.debug(msg, error);
                 break;
             case "FINER":
             case "FINEST":
-                logger.trace(msg);
+                logger.trace(msg, error);
                 break;
             default:
-                logger.info(msg);
+                logger.info(msg, error);
                 break;
         }
     }
