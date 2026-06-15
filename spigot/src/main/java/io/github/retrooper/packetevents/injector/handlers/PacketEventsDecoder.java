@@ -38,7 +38,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 import java.util.List;
-import java.util.logging.Level;
 
 public class PacketEventsDecoder extends MessageToMessageDecoder<ByteBuf> {
     public User user;
@@ -105,19 +104,22 @@ public class PacketEventsDecoder extends MessageToMessageDecoder<ByteBuf> {
         }
 
         boolean debug = PacketEvents.getAPI().getSettings().isDebugEnabled() || SpigotReflectionUtil.isMinecraftServerInstanceDebugging();
+        ConnectionState decoderState = user == null ? null
+                : (preViaVersion ? user.getPreViaDecoderState() : user.getPostViaDecoderState());
         // We log exceptions only if the server is in debug mode or the player is fully connected to the server.
-        if (debug || (user != null && user.getDecoderState() != ConnectionState.HANDSHAKING)) {
+        if (debug || (user != null && decoderState != ConnectionState.HANDSHAKING)) {
             if (PacketEvents.getAPI().getSettings().isFullStackTraceEnabled()) {
-                String state = user != null ? user.getDecoderState().name() : "null";
+                String state = decoderState != null ? decoderState.name() : "null";
                 String clientVersion = user != null ? user.getClientVersion().getReleaseName() : "null";
                 String username = user != null && user.getProfile().getName() != null ? user.getProfile().getName() : player != null ? player.getName() : "null";
 
-                PacketEvents.getAPI().getLogger().log(Level.WARNING, cause, () ->
-                        "An error occurred while processing a packet from " + username +
+                PacketEvents.getAPI().getLogManager().warn("An error occurred while processing a packet from "
+                        + user.getProfile().getName() +
                         " (state: " + state +
                         ", clientVersion: " + clientVersion +
                         ", serverVersion: " + PacketEvents.getAPI().getServerManager().getVersion().getReleaseName() +
-                        ", preVia: " + preViaVersion + ")");
+                        ", preVia: " + preViaVersion +
+                        ")", cause);
             } else {
                 PacketEvents.getAPI().getLogManager().warn(cause.getMessage());
             }
@@ -136,8 +138,9 @@ public class PacketEventsDecoder extends MessageToMessageDecoder<ByteBuf> {
                 FoliaScheduler.getEntityScheduler().runDelayed(player, (Plugin) PacketEvents.getAPI().getPlugin(), (o) -> player.kickPlayer("Invalid packet"), null, 1);
             }
 
-            String username = user != null && user.getProfile().getName() != null ? user.getProfile().getName() : player != null ? player.getName() : "null";
-            PacketEvents.getAPI().getLogManager().warn("Disconnected " + username + " due to an invalid packet!");
+            if (user != null && user.getProfile().getName() != null) {
+                PacketEvents.getAPI().getLogManager().warn("Disconnected " + user.getProfile().getName() + " due to an invalid packet!");
+            }
         }
     }
 
