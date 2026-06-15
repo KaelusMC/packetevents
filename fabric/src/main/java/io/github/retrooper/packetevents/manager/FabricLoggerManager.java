@@ -18,12 +18,14 @@
 
 package io.github.retrooper.packetevents.manager;
 
+import com.github.retrooper.packetevents.PacketEventsAPI;
 import com.github.retrooper.packetevents.util.LogManager;
-import net.kyori.adventure.text.format.NamedTextColor;
-import java.util.logging.Logger;
+import com.github.retrooper.packetevents.util.adventure.AdventureSerializer;
+import net.kyori.adventure.text.ComponentLike;
 
 import java.lang.reflect.Method;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 public class FabricLoggerManager extends LogManager {
@@ -37,69 +39,76 @@ public class FabricLoggerManager extends LogManager {
         SLF4J, LOG4J, JDK
     }
 
-    private FabricLoggerManager(Object logger, LoggerType loggerType) {
+    private FabricLoggerManager(PacketEventsAPI<?> packetevents, Object logger, LoggerType loggerType) {
+        super(packetevents);
         this.logger = logger;
         this.loggerType = loggerType;
     }
 
     @Override
-    public void log(Level level, NamedTextColor color, String message) {
-        // Strip color codes from the message (if any)
-        String plainMessage = STRIP_COLOR_PATTERN.matcher(message).replaceAll("");
+    public void log(Level level, ComponentLike component, Throwable error) {
+        // Flatten to plain text and strip color codes from the message (if any)
+        String plainMessage = STRIP_COLOR_PATTERN.matcher(AdventureSerializer.stringify(component)).replaceAll("");
 
         switch (loggerType) {
             case SLF4J:
-                logWithSlf4j(level, plainMessage);
+                logWithSlf4j(level, plainMessage, error);
                 break;
             case LOG4J:
-                logWithLog4j(level, plainMessage);
+                logWithLog4j(level, plainMessage, error);
                 break;
             case JDK:
-                logWithJdk(level, plainMessage);
+                logWithJdk(level, plainMessage, error);
                 break;
         }
     }
 
-    private void logWithSlf4j(Level level, String message) {
+    private void logWithSlf4j(Level level, String message, Throwable error) {
         try {
-            Object slf4jLogger = logger;
             Class<?> slf4jLoggerClass = Class.forName("org.slf4j.Logger");
-            Method logMethod;
+            String methodName;
             switch (level.getName()) {
                 case "SEVERE":
-                    logMethod = slf4jLoggerClass.getMethod("error", String.class);
+                    methodName = "error";
                     break;
                 case "WARNING":
-                    logMethod = slf4jLoggerClass.getMethod("warn", String.class);
+                    methodName = "warn";
                     break;
                 case "INFO":
-                    logMethod = slf4jLoggerClass.getMethod("info", String.class);
+                    methodName = "info";
                     break;
                 case "CONFIG":
                 case "FINE":
-                    logMethod = slf4jLoggerClass.getMethod("debug", String.class);
+                    methodName = "debug";
                     break;
                 case "FINER":
                 case "FINEST":
-                    logMethod = slf4jLoggerClass.getMethod("trace", String.class);
+                    methodName = "trace";
                     break;
                 default:
-                    logMethod = slf4jLoggerClass.getMethod("info", String.class); // Default to info
+                    methodName = "info"; // Default to info
                     break;
             }
-            logMethod.invoke(slf4jLogger, message);
+            if (error != null) {
+                Method logMethod = slf4jLoggerClass.getMethod(methodName, String.class, Throwable.class);
+                logMethod.invoke(logger, message, error);
+            } else {
+                Method logMethod = slf4jLoggerClass.getMethod(methodName, String.class);
+                logMethod.invoke(logger, message);
+            }
         } catch (Exception e) {
             // Fallback to println if reflection fails (shouldn't happen)
             System.out.println("[" + level + "] " + message);
+            if (error != null) {
+                error.printStackTrace();
+            }
         }
     }
 
-    private void logWithLog4j(Level level, String message) {
+    private void logWithLog4j(Level level, String message, Throwable error) {
         try {
-            Object log4jLogger = logger;
             Class<?> log4jLoggerClass = Class.forName("org.apache.logging.log4j.Logger");
             Class<?> log4jLevelClass = Class.forName("org.apache.logging.log4j.Level");
-            Method logMethod = log4jLoggerClass.getMethod("log", log4jLevelClass, String.class);
 
             // Map java.util.logging.Level to Log4j Level
             Object log4jLevel;
@@ -126,27 +135,39 @@ public class FabricLoggerManager extends LogManager {
                     break;
             }
 
-            logMethod.invoke(log4jLogger, log4jLevel, message);
+            if (error != null) {
+                Method logMethod = log4jLoggerClass.getMethod("log", log4jLevelClass, String.class, Throwable.class);
+                logMethod.invoke(logger, log4jLevel, message, error);
+            } else {
+                Method logMethod = log4jLoggerClass.getMethod("log", log4jLevelClass, String.class);
+                logMethod.invoke(logger, log4jLevel, message);
+            }
         } catch (Exception e) {
             // Fallback to println if reflection fails (shouldn't happen)
             System.out.println("[" + level + "] " + message);
+            if (error != null) {
+                error.printStackTrace();
+            }
         }
     }
 
-    private void logWithJdk(Level level, String message) {
+    private void logWithJdk(Level level, String message, Throwable error) {
         Logger jdkLogger = (Logger) logger;
-        jdkLogger.log(level, message);
+        if (error != null) {
+            jdkLogger.log(level, message, error);
+        } else {
+            jdkLogger.log(level, message);
+        }
     }
 
     // Factory method to create a mod-specific logger with fallback
-    public static FabricLoggerManager createModLogger(String modId) {
+    public static FabricLoggerManager createModLogger(String modId, PacketEventsAPI<?> packetevents) {
         // Try SLF4J first
         try {
-            Class<?> slf4jLoggerClass = Class.forName("org.slf4j.Logger");
             Class<?> slf4jLoggerFactoryClass = Class.forName("org.slf4j.LoggerFactory");
             Method getLoggerMethod = slf4jLoggerFactoryClass.getMethod("getLogger", String.class);
             Object slf4jLogger = getLoggerMethod.invoke(null, modId);
-            return new FabricLoggerManager(slf4jLogger, LoggerType.SLF4J);
+            return new FabricLoggerManager(packetevents, slf4jLogger, LoggerType.SLF4J);
         } catch (ClassNotFoundException e) {
             // SLF4J not found, try Log4j next
         } catch (Exception e) {
@@ -158,7 +179,7 @@ public class FabricLoggerManager extends LogManager {
             Class<?> log4jLogManagerClass = Class.forName("org.apache.logging.log4j.LogManager");
             Method getLoggerMethod = log4jLogManagerClass.getMethod("getLogger", String.class);
             Object log4jLogger = getLoggerMethod.invoke(null, modId);
-            return new FabricLoggerManager(log4jLogger, LoggerType.LOG4J);
+            return new FabricLoggerManager(packetevents, log4jLogger, LoggerType.LOG4J);
         } catch (ClassNotFoundException e) {
             // Log4j not found, fall back to JDK Logger
         } catch (Exception e) {
@@ -167,6 +188,6 @@ public class FabricLoggerManager extends LogManager {
 
         // Fall back to JDK Logger
         Logger jdkLogger = Logger.getLogger(modId);
-        return new FabricLoggerManager(jdkLogger, LoggerType.JDK);
+        return new FabricLoggerManager(packetevents, jdkLogger, LoggerType.JDK);
     }
 }

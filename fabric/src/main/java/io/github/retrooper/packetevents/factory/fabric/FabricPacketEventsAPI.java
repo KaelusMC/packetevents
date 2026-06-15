@@ -55,7 +55,7 @@ public class FabricPacketEventsAPI extends PacketEventsAPI<ModInitializer> {
     private final ServerManager serverManager;
     private final ChannelInjector injector;
     private final NettyManager nettyManager = new NettyManagerImpl();
-    private final LogManager logManager = FabricLoggerManager.createModLogger("PacketEvents");
+    private final LogManager logManager = FabricLoggerManager.createModLogger("PacketEvents", this);
     private final Logger logger = JULoggerFactory.createLogger("PacketEvents");
 
     private boolean loaded;
